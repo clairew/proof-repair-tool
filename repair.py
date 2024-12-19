@@ -208,7 +208,7 @@ def sample(model,tokenizer,prompt,env,temperature=0.60,maxlength=256, p = 0.1):
     COMMENT_TOKENS = [tokenizer.convert_tokens_to_ids('(*'), tokenizer.convert_tokens_to_ids('▁(*')] 
 
 
-    prompt_tokens = tokenizer([prompt], return_tensors="pt")
+    prompt_tokens = tokenizer([prompt], return_tensors="pt").to(model.device)
     prompt_length = len(prompt_tokens.input_ids[0])
     tmp = model(**prompt_tokens, use_cache=True)
     cache = ((), tmp.past_key_values)
@@ -239,8 +239,11 @@ def sample(model,tokenizer,prompt,env,temperature=0.60,maxlength=256, p = 0.1):
                 print("really weird at", tokenizer.decode(stack), stack)
                 prefix_length -= 1
 
-
-            tmp = model(torch.tensor([stack[prefix_length:]]),use_cache=True,past_key_values=trim_kvs(cache[1], prefix_length+prompt_length))
+            device = model.device
+            input_tensor = torch.tensor([stack[prefix_length:]], device=device)
+            past_key_values = trim_kvs(cache[1], prefix_length + prompt_length)
+            tmp = model(input_tensor, use_cache=True, past_key_values=past_key_values)
+            #tmp = model(torch.tensor([stack[prefix_length:]]),use_cache=True,past_key_values=trim_kvs(cache[1], prefix_length+prompt_length))
             
             logits[tuple(stack)] = process_logits(tmp.logits[0,-1,:],temperature=temperature)
             
